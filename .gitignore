@@ -1,0 +1,23 @@
+# Virtual environment
+ai_podcast_env/
+venv/
+env/
+.venv/
+.env/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Other common Python ignores
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# macOS system files
+.DS_Store
+
+# History of the content generated
+history/
