@@ -1,12 +1,14 @@
 import os
+import uuid
 from openai import OpenAI
+from pydub import AudioSegment
 import requests
 import json
+from pathlib import Path
+import re
 
-# Load API keys from environment variables
+# Load API key from environment variables
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-VOICE_API_KEY = os.environ.get('VOICE_API_KEY')
-ELEVENLABS_URL = 'https://api.elevenlabs.io/v1/text-to-speech'
 
 # Initialize OpenAI API
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -14,113 +16,170 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # Function to generate the conversation using OpenAI
 def generate_podcast_conversation(topic):
     prompt = f"""
-    You are generating a highly engaging podcast conversation about the topic "{topic}". The podcast features two speakers:
+        You are an expert podcast script writer. Your role is to craft engaging and dynamic podcast scripts 
+        involving two speakers, Emma and Chris, discussing a topic chosen by the user. Your job is to generate 
+        only the dialogue for the script, as it will be read by two AI-generated text-to-speech voices. The 
+        conversation should be informative, entertaining, and conversational, ensuring that both hosts engage 
+        in meaningful dialogue while breaking down the topic in an approachable way.
+
+        The topic of this podcast is: {topic}.
+x
+        Key instructions for the dialogue:
+
+        1. **Tone**:
+        - The tone should be casual, friendly, and energetic, engaging listeners while keeping them informed.
+        - The dialogue should feel natural and spontaneous, avoiding overly formal or complex language.
+        - Use relatable examples and analogies to simplify the topic and make it easy to understand.
+        - Ensure both hosts speak in a balanced, back-and-forth conversation to maintain a dynamic interaction.
+
+        2. **Structure**:
+        - The dialogue should be divided into the following sections:
+
+        a. **Introduction**:
+            - Emma starts by introducing the episode’s topic, {topic}, and what listeners can expect.
+            - Chris follows up with enthusiasm and adds a hook or interesting fact to draw in the audience.
+
+        b. **Explaining the Topic**:
+            - Emma asks Chris to explain the topic in simple terms.
+            - Chris gives a clear, engaging explanation using everyday analogies.
+            - Both Emma and Chris discuss why {topic} is relevant and interesting today, in a conversational manner.
+
+        c. **Deep Dive**:
+            - Emma asks a follow-up question, encouraging Chris to dive deeper into the topic.
+            - Chris elaborates with more technical details, using real-world examples to keep it relatable.
+            - They both address any common misconceptions or myths, debunking them in a friendly tone.
+
+        d. **Real-World Applications**:
+            - Emma and Chris explore how {topic} is used or applied in real life or specific industries, using 
+                examples the audience can relate to.
+            - They engage in a back-and-forth conversation, asking each other open-ended questions to keep 
+                the discussion lively.
+
+        e. **Conclusion**:
+            - Emma wraps up the conversation by summarizing the key takeaways.
+            - Chris adds a final thought, potentially a call to action or something for the audience to think about.
+            - Both hosts end on a high note, encouraging the audience to explore the topic further.
+
+        3. **Balanced Dialogue**:
+        - Alternate between Emma and Chris frequently to keep the energy high and ensure both hosts are 
+            actively participating.
+        - Avoid long monologues; ensure the dialogue feels dynamic, with questions, responses, and interactive 
+            conversation.
+
+        Please generate only the dialogue for this podcast script, using Emma and Chris as the speakers.
+        """
     
-    Speaker 1: Emma – A curious learner, always asking insightful questions to dig deeper into the topic. Her tone is friendly, engaging, and relatable. She is keen to understand complex topics in simple terms.
-    
-    Speaker 2: Chris – A highly knowledgeable guest at the podcasts who is inspired by Richard Feynman’s teaching methods. He excels at breaking down difficult concepts into bite-sized, relatable analogies, while also diving into the technical aspects when needed. His tone is approachable, enthusiastic, and encouraging.
-
-    Structure the conversation like this:
-
-    1. **Introduction:**
-       - Emma starts by introducing the topic and asking Chris to give a high-level overview.
-       - Chris explains the core concept in a simple, engaging way, using a real-world analogy that the audience can relate to.
-
-    2. **Deeper Exploration:**
-       - Emma asks more detailed questions, pushing Chris to dive deeper.
-       - Chris offers a technical breakdown but keeps it easy to follow. He blends analogies with facts, making sure the listeners don’t get lost in jargon.
-
-    3. **Engagement and Interaction:**
-       - Emma responds enthusiastically, asks clarifying questions, and shares her own perspective, making the conversation more interactive.
-       - Chris answers these questions in an intuitive way, keeping the conversation dynamic.
-
-    4. **Testing Understanding:**
-       - Chris asks Emma some thought-provoking questions, testing her understanding of the topic in a fun and engaging manner.
-       - Emma works through the questions, sometimes getting stuck, but Chris offers encouraging feedback and clarifies as needed.
-
-    5. **Conclusion:**
-       - Emma summarizes the key takeaways of the discussion in her own words.
-       - Chris wraps up with a motivational and forward-looking statement, hinting at how the audience can apply this knowledge in their daily lives or explore the topic further.
-    
-    The conversation should be lively, filled with back-and-forth dialogue, and paced in a way that keeps listeners engaged and entertained, while learning something new.
-    """
-
     # Generate the conversation using the more cost-effective gpt-4o-mini
     response = client.chat.completions.create(model="gpt-4o-mini",
     messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "system", "content": """You are an expert podcast script writer. 
+            Your task is to create engaging, dynamic podcast scripts with two hosts, Emma and Chris, that sound natural when spoken aloud. 
+            Ensure the dialogue flows conversationally, focusing on clear explanations of {topic}, balanced with entertainment and information. 
+            Keep the tone casual, friendly, and energetic. Structure the podcast with an introduction, in-depth exploration, practical examples, and a strong conclusion. 
+            Your job is to make the podcast both educational and entertaining, ensuring high listener engagement."""},
         {"role": "user", "content": prompt}
     ],
-    max_tokens=1500,
+    max_tokens=500,
     n=1,
-    stop=None,
+    stop=None, # stop=["Emma:", "Chris:"]
     temperature=0.7)
 
     conversation = response.choices[0].message.content.strip()
-    return conversation
+    # Remove markdown formatting using regex
+    cleaned_conversation = re.sub(r'[*_`#]', '', conversation)
+    return cleaned_conversation
 
 # Function to convert text to speech using ElevenLabs (or similar)
 def text_to_speech(conversation, speaker_name):
-    headers = {
-        "Authorization": f"Bearer {VOICE_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    # For simplicity, we split the conversation by speaker and send it to the voice generation API
-    data = {
-        "voice": speaker_name,
-        "text": conversation
-    }
-
-    response = requests.post(ELEVENLABS_URL, headers=headers, json=data)
-
-    if response.status_code == 200:
-        return response.content  # Audio binary
+    # Generate audio using OpenAI's API
+    if speaker_name == "Emma":
+        voice = "alloy"
+    elif speaker_name == "Chris":
+        voice = "echo"
     else:
-        raise Exception(f"Failed to generate speech: {response.status_code}, {response.text}")
+        raise ValueError(f"Invalid speaker name: {speaker_name}")
 
-# Function to save the audio file
-def save_audio_file(audio_content, filename):
-    with open(filename, 'wb') as audio_file:
-        audio_file.write(audio_content)
+    response = client.audio.speech.create(
+        model="tts-1",
+        voice=voice,
+        input=conversation
+    )
+
+    return response.content  # Audio binary
+
+
+# Function to create a single audio track from alternating dialogue
+def generate_podcast_audio(conversation):
+    print("Sit tight, voices are warming up...")
+
+    # Initialize an empty audio segment
+    combined_audio = AudioSegment.silent(duration=0)  # Start with silence
+
+    # Split the conversation by lines
+    lines = conversation.split("\n")
+
+    for line in lines:
+        if line.startswith("Emma:"):
+            speaker = "Emma"
+            text = line.replace("Emma:", "").strip()
+        elif line.startswith("Chris:"):
+            speaker = "Chris"
+            text = line.replace("Chris:", "").strip()
+        else:
+            continue  # Skip any line that doesn't start with Emma or Chris
+
+        # Generate audio for the current line
+        audio_content = text_to_speech(text, speaker)
+        
+        # Save audio to a temporary file
+        temp_audio_file = f"{speaker}_temp.mp3"
+        with open(temp_audio_file, 'wb') as audio_file:
+            audio_file.write(audio_content)
+
+        # Load the generated audio file and append it to the combined audio
+        current_audio = AudioSegment.from_file(temp_audio_file)
+        combined_audio += current_audio
+
+        # Remove the temporary file
+        os.remove(temp_audio_file)
+
+    return combined_audio
 
 # Main function to generate podcast for a given topic
 def generate_podcast(topic):
-    print(f"Generating podcast conversation for topic: {topic}")
+    print(f"Buckle up! Crafting an epic convo on: {topic}")
 
+    # Generate the conversation
     conversation = generate_podcast_conversation(topic)
 
-    # Split conversation by speakers for voice generation
-    emma_lines = "\n".join([line for line in conversation.split("\n") if "Emma:" in line])
-    chris_lines = "\n".join([line for line in conversation.split("\n") if "Chris:" in line])
+    # Generate the combined audio track from the conversation
+    combined_audio = generate_podcast_audio(conversation)
 
-    # # Generate speech for both speakers
-    # print("Generating voice for Emma...")
-    # emma_audio = text_to_speech(emma_lines, "Emma")  # Adjust with the name of Emma's voice
-    # save_audio_file(emma_audio, "emma_audio.mp3")
+    # Create a folder with the name of the topic
+    history_folder = "history"
+    folder_name = f"{topic.replace(' ', '_')}_{str(uuid.uuid4())[:8]}"  # Replace spaces with underscores and append unique ID
+    os.makedirs(os.path.join(history_folder, folder_name), exist_ok=True)
 
-    # print("Generating voice for Chris...")
-    # chris_audio = text_to_speech(chris_lines, "Chris")  # Adjust with the name of Chris's voice
-    # save_audio_file(chris_audio, "chris_audio.mp3")
+    # Save the final combined audio file
+    # combined_audio_file = f"{topic.replace(' ', '_')}_{str(uuid.uuid4())[:8]}.mp3"
+    combined_audio_file = os.path.join(history_folder, folder_name, f"{topic.replace(' ', '_')}.mp3")
+    combined_audio.export(combined_audio_file, format='mp3')
+    print(f"Podcast magic is complete! Your audio masterpiece is saved as {combined_audio_file}")
 
-    # print("Podcast generation complete. Audio files saved!")
-
-    # Save conversation lines
-    with open(f"conversation_{topic}.txt", "w") as f:
+    # Save the conversation text file
+    with open(os.path.join(history_folder, folder_name, f"conversation_{topic.replace(' ', '_')}.txt"), "w") as f:
         f.write(conversation)
+    print(f"Script archived in {folder_name}")
 
-    # Save Emma's lines
-    with open(f"emma_lines_{topic}.txt", "w") as f:
-        f.write(emma_lines)
+    # # Save Emma's lines
+    # with open(os.path.join(history_folder, folder_name, f"emma_lines_{topic}.txt"), "w") as f:
+    #     f.write(emma_lines)
 
-    # Save Chris's lines
-    with open(f"chris_lines_{topic}.txt", "w") as f:
-        f.write(chris_lines)
+    # # Save Chris's lines
+    # with open(os.path.join(history_folder, folder_name, f"chris_lines_{topic}.txt"), "w") as f:
+    #     f.write(chris_lines)
 
-    print("Conversation text files saved!")
-
-
-
+    
 if __name__ == "__main__":
-    user_topic = input("Enter the topic for your podcast: ")
+    user_topic = input("What's the hot topic for today's podcast? ")
     generate_podcast(user_topic)
