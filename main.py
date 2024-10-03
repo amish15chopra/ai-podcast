@@ -23,7 +23,7 @@ def generate_podcast_conversation(topic):
         in meaningful dialogue while breaking down the topic in an approachable way.
 
         The topic of this podcast is: {topic}.
-x
+
         Key instructions for the dialogue:
 
         1. **Tone**:
@@ -161,7 +161,6 @@ def generate_podcast(topic):
     os.makedirs(os.path.join(history_folder, folder_name), exist_ok=True)
 
     # Save the final combined audio file
-    # combined_audio_file = f"{topic.replace(' ', '_')}_{str(uuid.uuid4())[:8]}.mp3"
     combined_audio_file = os.path.join(history_folder, folder_name, f"{topic.replace(' ', '_')}.mp3")
     combined_audio.export(combined_audio_file, format='mp3')
     print(f"Podcast magic is complete! Your audio masterpiece is saved as {combined_audio_file}")
