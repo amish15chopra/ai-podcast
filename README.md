@@ -20,8 +20,8 @@ This Python application allows users to generate a podcast by providing a topic.
 ### Installation
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/ai-podcast-generator.git
-   cd ai-podcast-generator
+   git clone https://github.com/your-username/ai-podcast.git
+   cd ai-podcast
    ```
 
 2. Install the required Python packages:
