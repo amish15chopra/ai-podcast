@@ -2,16 +2,12 @@ import os
 import uuid
 from openai import OpenAI
 from pydub import AudioSegment
-import requests
-import json
 from pathlib import Path
 import re
 
-# Load API key from environment variables
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-
 # Initialize OpenAI API
-client = OpenAI(api_key=OPENAI_API_KEY)
+# Load API key from environment variables
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "<your OpenAI API key if not set as env var>"))
 
 # Function to generate the conversation using OpenAI
 def generate_podcast_conversation(topic):
