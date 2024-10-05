@@ -4,10 +4,16 @@ from openai import OpenAI
 from pydub import AudioSegment
 from pathlib import Path
 import re
+from flask import Flask, request, jsonify, send_from_directory, render_template
 
-# Initialize OpenAI API
+app = Flask(__name__)
+
 # Load API key from environment variables
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "<your OpenAI API key if not set as env var>"))
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 # Function to generate the conversation using OpenAI
 def generate_podcast_conversation(topic):
@@ -75,7 +81,7 @@ def generate_podcast_conversation(topic):
             Your job is to make the podcast both educational and entertaining, ensuring high listener engagement."""},
         {"role": "user", "content": prompt}
     ],
-    max_tokens=500,
+    max_tokens=100,
     n=1,
     stop=None, # stop=["Emma:", "Chris:"]
     temperature=0.7)
@@ -89,7 +95,7 @@ def generate_podcast_conversation(topic):
 def text_to_speech(conversation, speaker_name):
     # Generate audio using OpenAI's API
     if speaker_name == "Emma":
-        voice = "alloy"
+        voice = "nova"
     elif speaker_name == "Chris":
         voice = "echo"
     else:
@@ -124,27 +130,33 @@ def generate_podcast_audio(conversation):
         else:
             continue  # Skip any line that doesn't start with Emma or Chris
 
-        # Generate audio for the current line
-        audio_content = text_to_speech(text, speaker)
-        
-        # Save audio to a temporary file
-        temp_audio_file = f"{speaker}_temp.mp3"
-        with open(temp_audio_file, 'wb') as audio_file:
-            audio_file.write(audio_content)
+        # Check if text is not empty before calling text_to_speech
+        if text:
+            audio_content = text_to_speech(text, speaker)
+            temp_audio_file = f"{speaker}_temp.mp3"
+            with open(temp_audio_file, 'wb') as audio_file:
+                audio_file.write(audio_content)
 
-        # Load the generated audio file and append it to the combined audio
-        current_audio = AudioSegment.from_file(temp_audio_file)
-        combined_audio += current_audio
-
-        # Remove the temporary file
-        os.remove(temp_audio_file)
+            current_audio = AudioSegment.from_file(temp_audio_file)
+            combined_audio += current_audio
+            os.remove(temp_audio_file)
+        else:
+            print(f"Warning: Skipping empty text for {speaker}")
 
     return combined_audio
 
 # Main function to generate podcast for a given topic
-def generate_podcast(topic):
-    print(f"Buckle up! Crafting an epic convo on: {topic}")
+# Endpoint to generate a podcast
+@app.route('/generate_podcast', methods=['POST'])
+def generate_podcast():
 
+    data = request.json
+    topic = data.get('topic')
+
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+    
+    print(f"Buckle up! Crafting an epic convo on: {topic}")
     # Generate the conversation
     conversation = generate_podcast_conversation(topic)
 
@@ -166,6 +178,15 @@ def generate_podcast(topic):
         f.write(conversation)
     print(f"Script archived in {folder_name}")
 
+     # Return the URL to the audio file
+    audio_file_url = f"/history/{folder_name}/{topic.replace(' ', '_')}.mp3"
+
+    return jsonify({
+        "message": "Podcast generated successfully!",
+        "audio_file": audio_file_url,
+        "conversation_file": os.path.join(history_folder, folder_name, f"conversation_{topic.replace(' ', '_')}.txt")
+    }), 200
+
     # # Save Emma's lines
     # with open(os.path.join(history_folder, folder_name, f"emma_lines_{topic}.txt"), "w") as f:
     #     f.write(emma_lines)
@@ -174,7 +195,11 @@ def generate_podcast(topic):
     # with open(os.path.join(history_folder, folder_name, f"chris_lines_{topic}.txt"), "w") as f:
     #     f.write(chris_lines)
 
+
+# Serve static files
+@app.route('/history/<path:filename>', methods=['GET'])
+def serve_static(filename):
+    return send_from_directory('history', filename)
     
 if __name__ == "__main__":
-    user_topic = input("What's the hot topic for today's podcast? ")
-    generate_podcast(user_topic)
+    app.run(debug=True)

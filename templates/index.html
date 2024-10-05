@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Podcast Generator</title>
+    <style>
+        /* Premium Dark Color Palette */
+        :root {
+            --bg-dark: #1b1b1b;
+            --bg-darker: #111;
+            --text-light: #e0e0e0;
+            --primary: #8e44ad; /* Premium purple */
+            --accent: #3498db; /* Premium blue */
+            --error-color: #e74c3c;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg-dark);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--text-light);
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: var(--accent);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        #podcastForm {
+            background-color: var(--bg-darker);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+            animation: fadeIn 1s ease;
+        }
+
+        input[type="text"] {
+            width: 90%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid var(--primary);
+            border-radius: 8px;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            background-color: var(--bg-darker);
+        }
+
+        button {
+            width: 90%;
+            padding: 12px 20px;
+            background-color: var(--primary);
+            color: var(--text-light);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        button:hover {
+            background-color: var(--accent);
+            transform: translateY(-3px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        audio {
+            margin-top: 20px;
+            display: block;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        #message {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: var(--success-color);
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 6px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s infinite linear;
+        }
+
+        /* Keyframes for animations */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            input[type="text"],
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>🎙️ AI Podcast Generator</h1>
+    <form id="podcastForm">
+        <input type="text" id="topic" placeholder="Enter podcast topic" required>
+        <button type="submit">Generate Podcast</button>
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+    </form>
+    <audio id="audioPlayer" controls style="display:none;">
+        <source id="audioSource" src="" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <div id="message"></div>
+
+    <script>
+        document.getElementById('podcastForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent the form from submitting the default way
+
+        const topic = document.getElementById('topic').value;
+        const messageDiv = document.getElementById('message');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioSource = document.getElementById('audioSource');
+        const loadingDiv = document.querySelector('.loading');
+
+        // Clear previous message and audio source
+        messageDiv.innerHTML = '';
+        audioPlayer.style.display = 'none';
+        audioSource.src = '';
+
+        // Show loading spinner
+        loadingDiv.style.display = 'block';
+
+        // Debugging - Log the topic input
+        console.log('Sending topic:', topic);
+
+        // Send POST request to the Flask API
+        fetch('/generate_podcast', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ topic: topic }) // Sending the topic in JSON format
+        })
+        .then(response => {
+            // Debugging - Check if response is OK
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Debugging - Check the data returned by Flask
+            console.log('Received data:', data);
+
+            if (data.audio_file) {
+                audioSource.src = data.audio_file; // Set the audio source to the returned URL
+                audioPlayer.style.display = 'block'; // Show the audio player
+                audioPlayer.load(); // Load the new audio source
+                audioPlayer.play(); // Optionally play the audio automatically
+            }
+            messageDiv.innerHTML = data.message; // Show success message
+        })
+        .catch(error => {
+            // Use getComputedStyle to retrieve the CSS variable value
+            const root = document.documentElement;
+            const errorColor = getComputedStyle(root).getPropertyValue('--error-color');
+
+            // Apply error message styling
+            messageDiv.innerHTML = 'Error: ' + error.message;
+            messageDiv.style.color = errorColor.trim(); // Apply CSS variable value
+        })
+        .finally(() => {
+            // Hide loading spinner
+            loadingDiv.style.display = 'none';
+        });
+    });
+    </script>
+</body>
+</html>
