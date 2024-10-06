@@ -278,4 +278,4 @@ def serve_static(filename):
     return send_from_directory('history', filename)
     
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)  # Bind to all IP addresses
