@@ -144,11 +144,15 @@
 <body>
     <h1>🎙️ AI Podcast Generator</h1>
     <form id="podcastForm">
-        <input type="text" id="topic" placeholder="Enter podcast topic" required>
-        <button type="submit">Generate Podcast</button>
+        <input type="text" id="topic" placeholder="Enter discussion topic" required>
+        <button type="submit">Generate!</button>
         <div class="loading">
             <div class="spinner"></div>
         </div>
+    </form>
+    <form id="extendForm" style="display:none;">
+        <input type="text" id="newIdea" placeholder="Enter new idea to extend conversation" required>
+        <button type="submit">Extend Conversation!</button>
     </form>
     <audio id="audioPlayer" controls style="display:none;">
         <source id="audioSource" src="" type="audio/mpeg">
@@ -158,67 +162,132 @@
 
     <script>
         document.getElementById('podcastForm').addEventListener('submit', function(event) {
-        event.preventDefault(); // Prevent the form from submitting the default way
+            event.preventDefault(); // Prevent the form from submitting the default way
 
-        const topic = document.getElementById('topic').value;
-        const messageDiv = document.getElementById('message');
-        const audioPlayer = document.getElementById('audioPlayer');
-        const audioSource = document.getElementById('audioSource');
-        const loadingDiv = document.querySelector('.loading');
+            const topic = document.getElementById('topic').value;
+            const messageDiv = document.getElementById('message');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const audioSource = document.getElementById('audioSource');
+            const loadingDiv = document.querySelector('.loading');
 
-        // Clear previous message and audio source
-        messageDiv.innerHTML = '';
-        audioPlayer.style.display = 'none';
-        audioSource.src = '';
+            // Clear previous message and audio source
+            messageDiv.innerHTML = '';
+            audioPlayer.style.display = 'none';
+            audioSource.src = '';
 
-        // Show loading spinner
-        loadingDiv.style.display = 'block';
+            // Show loading spinner
+            loadingDiv.style.display = 'block';
 
-        // Debugging - Log the topic input
-        console.log('Sending topic:', topic);
+            // Debugging - Log the topic input
+            console.log('Sending topic:', topic);
 
-        // Send POST request to the Flask API
-        fetch('/generate_podcast', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ topic: topic }) // Sending the topic in JSON format
-        })
-        .then(response => {
-            // Debugging - Check if response is OK
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Debugging - Check the data returned by Flask
-            console.log('Received data:', data);
+            // Send POST request to the Flask API
+            fetch('/generate_podcast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ topic: topic }) // Sending the topic in JSON format
+            })
+            .then(response => {
+                // Debugging - Check if response is OK
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Debugging - Check the data returned by Flask
+                console.log('Received data:', data);
 
-            if (data.audio_file) {
-                audioSource.src = data.audio_file; // Set the audio source to the returned URL
-                audioPlayer.style.display = 'block'; // Show the audio player
-                audioPlayer.load(); // Load the new audio source
-                audioPlayer.play(); // Optionally play the audio automatically
-            }
-            messageDiv.innerHTML = data.message; // Show success message
-        })
-        .catch(error => {
-            // Use getComputedStyle to retrieve the CSS variable value
-            const root = document.documentElement;
-            const errorColor = getComputedStyle(root).getPropertyValue('--error-color');
+                if (data.audio_file) {
+                    audioSource.src = data.audio_file; // Set the audio source to the returned URL
+                    audioPlayer.style.display = 'block'; // Show the audio player
+                    audioPlayer.load(); // Load the new audio source
+                    audioPlayer.play(); // Optionally play the audio automatically
+                }
+                messageDiv.innerHTML = data.message; // Show success message
+                document.getElementById('extendForm').reset();
+                document.getElementById('extendForm').style.display = 'block'; // Show extend form
+            })
+            .catch(error => {
+                // Use getComputedStyle to retrieve the CSS variable value
+                const root = document.documentElement;
+                const errorColor = getComputedStyle(root).getPropertyValue('--error-color');
 
-            // Apply error message styling
-            messageDiv.innerHTML = 'Error: ' + error.message;
-            messageDiv.style.color = errorColor.trim(); // Apply CSS variable value
-        })
-        .finally(() => {
-            // Hide loading spinner
-            loadingDiv.style.display = 'none';
+                // Apply error message styling
+                messageDiv.innerHTML = 'Error: ' + error.message;
+                messageDiv.style.color = errorColor.trim(); // Apply CSS variable value
+            })
+            .finally(() => {
+                // Hide loading spinner
+                loadingDiv.style.display = 'none';
+            });
         });
-    });
+
+        document.getElementById('extendForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Prevent the form from submitting the default way
+
+            const newIdea = document.getElementById('newIdea').value;
+            const messageDiv = document.getElementById('message');
+            const audioPlayer = document.getElementById('audioPlayer');
+            const audioSource = document.getElementById('audioSource');
+            const loadingDiv = document.querySelector('.loading');
+
+            // Clear previous message and audio source
+            messageDiv.innerHTML = '';
+            audioPlayer.style.display = 'none';
+            audioSource.src = '';
+
+            // Show loading spinner
+            loadingDiv.style.display = 'block';
+
+            // Debugging - Log the new idea input
+            console.log('Extending conversation with new idea:', newIdea);
+
+            // Send POST request to the Flask API to extend the conversation
+            fetch('/extend_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ topic: document.getElementById('topic').value, new_idea: newIdea }) // Sending the topic and new idea in JSON format
+            })
+            .then(response => {
+                // Debugging - Check if response is OK
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Debugging - Check the data returned by Flask
+                console.log('Received data for extended conversation:', data);
+
+                if (data.audio_file) {
+                    audioSource.src = data.audio_file; // Set the audio source to the returned URL
+                    audioPlayer.style.display = 'block'; // Show the audio player
+                    audioPlayer.load(); // Load the new audio source
+                    audioPlayer.play(); // Optionally play the audio automatically
+                }
+                messageDiv.innerHTML = data.message; // Show success message
+            })
+            .catch(error => {
+                // Use getComputedStyle to retrieve the CSS variable value
+                const root = document.documentElement;
+                const errorColor = getComputedStyle(root).getPropertyValue('--error-color');
+
+                // Apply error message styling
+                messageDiv.innerHTML = 'Error: ' + error.message;
+                messageDiv.style.color = errorColor.trim(); // Apply CSS variable value
+            })
+            .finally(() => {
+                // Hide loading spinner
+                loadingDiv.style.display = 'none';
+            });
+        });
     </script>
 </body>
 </html>

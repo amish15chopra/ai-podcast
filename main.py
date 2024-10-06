@@ -4,9 +4,10 @@ from openai import OpenAI
 from pydub import AudioSegment
 from pathlib import Path
 import re
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask import Flask, request, jsonify, send_from_directory, render_template, session
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Set a secret key for session management
 
 # Load API key from environment variables
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "<your OpenAI API key if not set as env var>"))
@@ -16,8 +17,9 @@ def index():
     return render_template('index.html')
 
 # Function to generate the conversation using OpenAI
-def generate_podcast_conversation(topic):
-    prompt = f"""
+def generate_podcast_conversation(topic, conversation_history=None, new_idea=None):
+    if not conversation_history and not new_idea:
+        prompt = f"""
         You are an expert podcast script writer. Your role is to craft engaging and dynamic podcast scripts 
         involving two speakers, Emma and Chris, discussing a topic chosen by the user. Your job is to generate 
         only the dialogue for the script, as it will be read by two AI-generated text-to-speech voices. The 
@@ -70,7 +72,27 @@ def generate_podcast_conversation(topic):
 
         Please generate only the dialogue for this podcast script, using Emma and Chris as the speakers.
         """
-    
+        print("Generating initial conversation on: {topic}")
+
+    else:
+        prompt = f"""
+        You are an expert podcast script writer. Your role is to continue the podcast script 
+        involving two speakers, Emma and Chris, discussing a topic chosen by the user. Your job 
+        is to generate only the dialogue for the script, as it will be read by two AI-generated 
+        text-to-speech voices. The conversation should be informative, entertaining, and conversational, 
+        ensuring that both hosts engage in meaningful dialogue while breaking down the topic in an 
+        approachable way.
+
+        The conversation history is: {conversation_history}.
+
+        A new idea or perspective has been introduced: {new_idea}
+
+        Please continue the conversation, incorporating this new idea or perspective. You can use the 
+        conversation history as context, but focus on exploring the new idea in relation to the original topic. 
+        Ensure that the dialogue remains natural and engaging, with both Emma and Chris contributing to the discussion.
+        """
+        print(f"Continuing conversation on: {new_idea}")
+
     # Generate the conversation using the more cost-effective gpt-4o-mini
     response = client.chat.completions.create(model="gpt-4o-mini",
     messages=[
@@ -91,9 +113,8 @@ def generate_podcast_conversation(topic):
     cleaned_conversation = re.sub(r'[*_`#]', '', conversation)
     return cleaned_conversation
 
-# Function to convert text to speech using ElevenLabs (or similar)
+# Function to convert text to speech using OpenAI TTS
 def text_to_speech(conversation, speaker_name):
-    # Generate audio using OpenAI's API
     if speaker_name == "Emma":
         voice = "nova"
     elif speaker_name == "Chris":
@@ -149,7 +170,6 @@ def generate_podcast_audio(conversation):
 # Endpoint to generate a podcast
 @app.route('/generate_podcast', methods=['POST'])
 def generate_podcast():
-
     data = request.json
     topic = data.get('topic')
 
@@ -178,7 +198,10 @@ def generate_podcast():
         f.write(conversation)
     print(f"Script archived in {folder_name}")
 
-     # Return the URL to the audio file
+    # Store the folder name in the session for later use
+    session['folder_name'] = folder_name
+
+    # Return the URL to the audio file
     audio_file_url = f"/history/{folder_name}/{topic.replace(' ', '_')}.mp3"
 
     return jsonify({
@@ -195,6 +218,59 @@ def generate_podcast():
     # with open(os.path.join(history_folder, folder_name, f"chris_lines_{topic}.txt"), "w") as f:
     #     f.write(chris_lines)
 
+
+# Endpoint to extend the conversation
+import time  # Import time for timestamping
+
+@app.route('/extend_conversation', methods=['POST'])
+def extend_conversation():
+    data = request.json
+    topic = data.get('topic')
+    new_idea = data.get('new_idea')
+
+    if not topic or not new_idea:
+        return jsonify({"error": "Topic and new idea are required"}), 400
+
+    # Load the existing conversation file using the folder name stored in the session
+    folder_name = session.get('folder_name')
+    if not folder_name:
+        return jsonify({"error": "No active podcast session found"}), 400
+
+    conversation_file = os.path.join("history", folder_name, f"conversation_{topic.replace(' ', '_')}.txt")
+    if not os.path.exists(conversation_file):
+        return jsonify({"error": "Conversation file not found"}), 404
+
+    with open(conversation_file, "r") as f:
+        conversation_history = f.read()
+
+    # Pass the new_idea to extend the conversation
+    conversation_extended = generate_podcast_conversation(topic, conversation_history, new_idea)
+
+    # Generate the combined audio track from the extended conversation
+    combined_audio = generate_podcast_audio(conversation_extended)
+
+    # Create a unique filename for the extended conversation
+    timestamp = int(time.time())  # Get the current timestamp
+    extended_conversation_file = os.path.join("history", folder_name, f"conversation_{topic.replace(' ', '_')}_{timestamp}.txt")
+
+    # Save the extended conversation text file with a unique name
+    with open(extended_conversation_file, "w") as f:
+        f.write(conversation_extended)
+    print(f"Conversation extended and archived in {folder_name} as {extended_conversation_file}")
+
+    # Save the extended conversation audio file with a unique name
+    combined_audio_file = os.path.join("history", folder_name, f"{topic.replace(' ', '_')}_{timestamp}.mp3")
+    combined_audio.export(combined_audio_file, format='mp3')
+    print(f"Extended conversation audio saved as {combined_audio_file}")
+
+    # Return the URL to the audio file
+    audio_file_url = f"/history/{folder_name}/{topic.replace(' ', '_')}_{timestamp}.mp3"
+
+    return jsonify({
+        "message": "Conversation extended successfully!",
+        "audio_file": audio_file_url,
+        "conversation_file": extended_conversation_file
+    }), 200 
 
 # Serve static files
 @app.route('/history/<path:filename>', methods=['GET'])
