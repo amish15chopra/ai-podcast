@@ -111,7 +111,7 @@ def generate_podcast_conversation(topic, conversation_history=None, new_idea=Non
 
         Please generate only the dialogue for this podcast script, using Emma and Chris as the speakers.
         """
-        print("Generating initial conversation on: {topic}")
+        print(f"Generating initial conversation on: {topic}")
 
     else:
         prompt = f"""
