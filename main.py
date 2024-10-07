@@ -1,9 +1,11 @@
+import io
 import os
 import uuid
 from openai import OpenAI
 from pydub import AudioSegment
 from pathlib import Path
 import re
+import time
 from flask import Flask, request, jsonify, send_from_directory, render_template, session
 
 app = Flask(__name__)
@@ -154,13 +156,8 @@ def generate_podcast_audio(conversation):
         # Check if text is not empty before calling text_to_speech
         if text:
             audio_content = text_to_speech(text, speaker)
-            temp_audio_file = f"{speaker}_temp.mp3"
-            with open(temp_audio_file, 'wb') as audio_file:
-                audio_file.write(audio_content)
-
-            current_audio = AudioSegment.from_file(temp_audio_file)
+            current_audio = AudioSegment.from_file(io.BytesIO(audio_content))
             combined_audio += current_audio
-            os.remove(temp_audio_file)
         else:
             print(f"Warning: Skipping empty text for {speaker}")
 
@@ -220,8 +217,6 @@ def generate_podcast():
 
 
 # Endpoint to extend the conversation
-import time  # Import time for timestamping
-
 @app.route('/extend_conversation', methods=['POST'])
 def extend_conversation():
     data = request.json
@@ -278,4 +273,4 @@ def serve_static(filename):
     return send_from_directory('history', filename)
     
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=True)  # Bind to all IP addresses
+    app.run(host='0.0.0.0', port=5001, debug=True)  # Bind to all IP addresses
