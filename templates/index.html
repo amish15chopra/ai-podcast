@@ -30,6 +30,32 @@
             opacity: 1;
             transform: translateY(0);
         }
+
+        /* claude overlay */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .loading-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        @keyframes rotate {
+            100% { transform: rotate(360deg); }
+        }
+        .loading-spinner {
+            animation: rotate 2s linear infinite;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 flex flex-col items-center justify-center p-4">
@@ -75,8 +101,18 @@
         <div id="message" class="mt-4 p-4 bg-white bg-opacity-10 backdrop-filter backdrop-blur-lg rounded-lg text-white text-center hidden slide-in"></div>
     </div>
 
-    <div id="loadingSpinner" class="hidden mt-4">
+    <!-- <div id="loadingSpinner" class="hidden mt-4">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+    </div> -->
+    <div id="loadingOverlay" class="overlay hidden text-center">
+        <div class="loading-content">
+            <svg class="loading-spinner" width="50" height="50" viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="#4f46e5" stroke-width="5" stroke-dasharray="31.4 31.4">
+                    <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 25 25" to="360 25 25" repeatCount="indefinite"/>
+                </circle>
+            </svg>
+            <p id="loadingMessage" class="mt-4 text-lg font-semibold text-gray-700">Preparing your podcast...</p>
+        </div>
     </div>
 
     <script>
@@ -96,15 +132,32 @@
         const audioPlayer = document.getElementById('audioPlayer');
         const loadingSpinner = document.getElementById('loadingSpinner');
         const extendForm = document.getElementById('extendForm');
+        // claude
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingMessage = document.getElementById('loadingMessage');
 
         hideElement(messageDiv);
         hideElement(audioContainer);
         hideElement(extendForm);
-        hideElement(loadingSpinner);
+        // hideElement(loadingSpinner);
+
+        function setLoading(isLoading, message = 'Preparing your podcast...') {
+            if (isLoading) {
+                loadingMessage.textContent = message;
+                showElement(loadingOverlay);
+                generateBtn.disabled = true;
+                extendBtn.disabled = true;
+            } else {
+                hideElement(loadingOverlay);
+                generateBtn.disabled = false;
+                extendBtn.disabled = false;
+            }
+        }
 
         async function handleSubmit(event, endpoint, data) {
             event.preventDefault(); // Prevent the default form submission behavior
-            showElement(loadingSpinner);
+            // showElement(loadingSpinner);
+            setLoading(true, 'Generating your podcast...');
             try {
                 // Send a POST request to the specified endpoint with the provided data
                 const response = await fetch(endpoint, {
@@ -117,6 +170,8 @@
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
+
+                setLoading(true, 'Processing audio...');
 
                 // Parse the JSON response
                 const result = await response.json();
@@ -140,7 +195,8 @@
                 showElement(messageDiv);
             } finally {
                 // Hide the loading spinner regardless of success or failure
-                hideElement(loadingSpinner);
+                // hideElement(loadingSpinner);
+                setLoading(false);
             }
         }
 
