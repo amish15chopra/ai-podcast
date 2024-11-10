@@ -8,11 +8,6 @@ This Python application allows users to generate a podcast by providing a topic.
 - **Single Audio Track**: Output a single combined audio file with alternating dialogue between Emma and Chris.
 - **Interactive Guidance**: Users can introduce new ideas mid-conversation, influencing the direction of the podcast.
 
-## Technologies Used
-- **OpenAI API**: Generates the podcast script.
-- **Text-to-Speech API**: Converts text to audio.
-- **Python**: Main programming language for the application.
-
 ## Prerequisites
 - Python 3.x
 - OpenAI API Key
@@ -35,16 +30,21 @@ This Python application allows users to generate a podcast by providing a topic.
    ```
 
 ## Usage
-1. Run the script:
+1. Activate the virtual environment (optional)
+   ```bash
+   source ai_podcast_env/bin/activate
+   ```
+
+3. Run the script:
    ```bash
    python main.py
    ```
 
-2. The app will generate a podcast script and create a single audio file for the podcast.
+4. The app will generate a podcast script and create a single audio file for the podcast.
 
 ### Interactive Mode
 To guide the podcast in real-time:
-- After entering a topic, you can suggest new ideas or perspectives at specific intervals to shape the conversation as it progresses.
+- After entering a topic, you can suggest new ideas or perspective to shape the conversation as it progresses.
 
 ## Project Structure
 ```
@@ -55,10 +55,4 @@ ai-podcast-generator/
 ├── README.md                # Project documentation
 ├── history/                 # Folder to store conversation history and audio files
     └── [generated_files]    # Auto-generated content
-```
-
-## To-Do
-- [ ] Add support for different voices and accents.
-- [ ] Integrate more flexible user inputs for guiding conversations dynamically.
-- [ ] Implement error handling for text-to-speech API calls.
-  
+```  
